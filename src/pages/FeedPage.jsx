@@ -71,54 +71,53 @@ function FeedPage() {
     <section className="page-panel">
       <div className="feed-page-layout">
         <main className="feed-page-main">
-          <p className="page-kicker">Global Feed</p>
-      <h1>Rising Star Conversations</h1>
-      <p className="page-copy">
-        Join the conversation around the athletes shaping what comes next.
-      </p>
+          <p className="page-kicker">The Feed</p>
+          <h1>Talk about Rising Stars!</h1>
+          <p className="page-copy">Join the conversation!</p>
 
-      <PostComposer onPostCreated={handlePostCreated} />
+          <PostComposer onPostCreated={handlePostCreated} />
 
-      {status === "loading" && <p className="page-copy">Loading posts...</p>}
+          {status === "loading" && (
+            <p className="page-copy">Loading posts...</p>
+          )}
 
-      {status === "error" && (
-        <p className="page-copy">Could not load posts: {error}</p>
-      )}
+          {status === "error" && (
+            <p className="page-copy">Could not load posts: {error}</p>
+          )}
 
-      {status === "success" && !posts.length && (
-        <p className="page-copy">No posts have been shared yet.</p>
-      )}
+          {status === "success" && !posts.length && (
+            <p className="page-copy">No posts have been shared yet.</p>
+          )}
 
-      {status === "success" && visiblePosts.length > 0 && (
-        <div className="feed-list">
-          {visiblePosts.map((post) => (
-            <Post
-              key={post._id}
-              post={post}
-              onOpen={setSelectedPost}
-              onPostDeleted={handlePostDeleted}
-              onPostUpdated={handlePostUpdated}
-            />
-          ))}
-        </div>
-      )}
+          {status === "success" && visiblePosts.length > 0 && (
+            <div className="feed-list">
+              {visiblePosts.map((post) => (
+                <Post
+                  key={post._id}
+                  post={post}
+                  onOpen={setSelectedPost}
+                  onPostDeleted={handlePostDeleted}
+                  onPostUpdated={handlePostUpdated}
+                />
+              ))}
+            </div>
+          )}
 
-      {!currentUser && previewPosts.length > 0 && (
-        <>
-          <div className="feed-preview-list" aria-hidden="true" inert="">
-            {previewPosts.map((post) => (
-              <Post
-                key={post._id}
-                post={post}
-                onOpen={() => {}}
-                onPostDeleted={() => {}}
-                onPostUpdated={() => {}}
-              />
-            ))}
-          </div>
-        </>
-      )}
-
+          {!currentUser && previewPosts.length > 0 && (
+            <>
+              <div className="feed-preview-list" aria-hidden="true" inert="">
+                {previewPosts.map((post) => (
+                  <Post
+                    key={post._id}
+                    post={post}
+                    onOpen={() => {}}
+                    onPostDeleted={() => {}}
+                    onPostUpdated={() => {}}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </main>
 
         {status === "success" && (

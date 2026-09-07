@@ -32,7 +32,6 @@ function RootLayout() {
       <header className="site-header">
         <nav className="site-nav" aria-label="Main navigation">
           <NavLink to="/" className="brand-link">
-            <span className="brand-mark">T</span>
             <span>Tangible</span>
           </NavLink>
 
@@ -67,8 +66,12 @@ function RootLayout() {
                       className="nav-profile-avatar"
                     />
                   ) : (
-                    <span className="nav-profile-avatar nav-profile-avatar-fallback" aria-hidden="true">
-                      {currentUser.displayName?.slice(0, 1).toUpperCase() || "T"}
+                    <span
+                      className="nav-profile-avatar nav-profile-avatar-fallback"
+                      aria-hidden="true"
+                    >
+                      {currentUser.displayName?.slice(0, 1).toUpperCase() ||
+                        "T"}
                     </span>
                   )}
                   <span>Welcome, {currentUser.displayName}!</span>
