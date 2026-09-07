@@ -1,10 +1,12 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { getCurrentUser, loginUser, registerUser } from "../../api/authApi";
 
+const savedToken = localStorage.getItem("token");
+
 const initialState = {
   user: null,
-  token: localStorage.getItem("token"),
-  status: "idle",
+  token: savedToken,
+  status: savedToken ? "loading" : "idle",
   error: null,
 };
 
@@ -61,6 +63,7 @@ export const fetchCurrentUser = createAsyncThunk(
       const currentUser = await getCurrentUser();
       return currentUser;
     } catch (error) {
+      localStorage.removeItem("token");
       return thunkAPI.rejectWithValue(
         error.response?.data?.message || error.message,
       );
@@ -74,6 +77,9 @@ const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
+    setCurrentUser(state, action) {
+      state.user = action.payload;
+    },
     logout(state) {
       state.user = null;
       state.token = null;
@@ -128,7 +134,7 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout } = authSlice.actions;
+export const { logout, setCurrentUser } = authSlice.actions;
 export const selectCurrentUser = (state) => state.auth.user;
 export const selectAuthToken = (state) => state.auth.token;
 export const selectAuthStatus = (state) => state.auth.status;

@@ -1,6 +1,10 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
 import RootLayout from "./components/layout/RootLayout";
+import AdminRoute from "./components/AdminRoute";
+import CurrentProfileRoute from "./components/CurrentProfileRoute";
+import GuestRoute from "./components/GuestRoute";
+import ProtectedRoute from "./components/ProtectedRoute";
 import AdminPage from "./pages/AdminPage";
 import FeedPage from "./pages/FeedPage";
 import GroupDetailsPage from "./pages/GroupDetailsPage";
@@ -21,12 +25,17 @@ const router = createBrowserRouter([
         element: <FeedPage />,
       },
       {
-        path: "login",
-        element: <LoginPage />,
-      },
-      {
-        path: "register",
-        element: <RegisterPage />,
+        element: <GuestRoute />,
+        children: [
+          {
+            path: "login",
+            element: <LoginPage />,
+          },
+          {
+            path: "register",
+            element: <RegisterPage />,
+          },
+        ],
       },
       {
         path: "players",
@@ -44,13 +53,28 @@ const router = createBrowserRouter([
         path: "groups/:groupId",
         element: <GroupDetailsPage />,
       },
+
       {
-        path: "profile/:userId",
-        element: <ProfilePage />,
+        element: <ProtectedRoute />,
+        children: [
+          {
+            path: "profile/current",
+            element: <CurrentProfileRoute />,
+          },
+          {
+            path: "profile/:userId",
+            element: <ProfilePage />,
+          },
+        ],
       },
       {
-        path: "admin",
-        element: <AdminPage />,
+        element: <AdminRoute />,
+        children: [
+          {
+            path: "admin",
+            element: <AdminPage />,
+          },
+        ],
       },
     ],
   },
