@@ -1,17 +1,20 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { Trash2 } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 
-import { getGroupById, requestJoinGroup } from "../api/groupsApi";
+import { deleteGroup, getGroupById, requestJoinGroup } from "../api/groupsApi";
 import { getPostsByGroupId } from "../api/postsApi";
-import { selectCurrentUser } from "../features/auth/authSlice";
-import Player from "../components/Player";
+import { selectCurrentUser, setCurrentUser } from "../features/auth/authSlice";
 import Post from "../components/Post";
 import PostModal from "../components/PostModal";
+import ProfileMediaGrid from "../components/ProfileMediaGrid";
 import User from "../components/User";
 
 function GroupDetailsPage() {
   const { groupId } = useParams();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
   const currentUser = useSelector(selectCurrentUser);
   const [group, setGroup] = useState(null);
   const [posts, setPosts] = useState([]);
@@ -53,7 +56,9 @@ function GroupDetailsPage() {
       setGroup(updatedGroup);
       setJoinStatus("success");
     } catch (requestError) {
-      setJoinError(requestError.response?.data?.message || requestError.message);
+      setJoinError(
+        requestError.response?.data?.message || requestError.message,
+      );
       setJoinStatus("error");
     }
   }
@@ -68,6 +73,35 @@ function GroupDetailsPage() {
     setSelectedPost((currentPost) =>
       currentPost?._id === updatedPost._id ? updatedPost : currentPost,
     );
+  }
+
+  function handlePostDeleted(postId) {
+    setPosts((currentPosts) =>
+      currentPosts.filter((post) => post._id !== postId),
+    );
+    setSelectedPost(null);
+  }
+
+  async function handleDeleteGroup() {
+    if (!window.confirm("Delete this group? Its posts will become public.")) {
+      return;
+    }
+
+    try {
+      await deleteGroup(group._id);
+      dispatch(
+        setCurrentUser({
+          ...currentUser,
+          groups: (currentUser.groups || []).filter(
+            (currentGroup) =>
+              String(currentGroup._id || currentGroup) !== String(group._id),
+          ),
+        }),
+      );
+      navigate("/groups");
+    } catch (requestError) {
+      setJoinError(requestError.response?.data?.message || requestError.message);
+    }
   }
 
   if (status === "loading") {
@@ -93,12 +127,20 @@ function GroupDetailsPage() {
   const hasPendingRequest = pendingMembers.some(
     (member) => String(member._id) === String(currentUserId),
   );
+  const isOwner = String(group.owner?._id) === String(currentUserId);
 
   return (
     <section className="page-panel">
       <p className="page-kicker">Community Room</p>
 
       <header className="group-detail-header">
+        {group.image ? (
+          <img src={group.image} alt="" className="group-detail-avatar" />
+        ) : (
+          <div className="group-detail-avatar group-detail-avatar-fallback" aria-hidden="true">
+            {group.name.slice(0, 1).toUpperCase()}
+          </div>
+        )}
         <div>
           <h1>{group.name}</h1>
           <p className="group-detail-members">{members.length} members</p>
@@ -111,6 +153,15 @@ function GroupDetailsPage() {
           <Link to="/login" className="group-join-button">
             Log in to join
           </Link>
+        ) : isOwner ? (
+          <button
+            type="button"
+            className="group-delete-button"
+            onClick={handleDeleteGroup}
+          >
+            <Trash2 size={16} aria-hidden="true" />
+            Delete group
+          </button>
         ) : isMember ? (
           <span className="group-membership-state">Joined</span>
         ) : hasPendingRequest || joinStatus === "success" ? (
@@ -134,7 +185,9 @@ function GroupDetailsPage() {
           <section className="group-posts" aria-labelledby="group-posts-title">
             <div className="group-section-heading">
               <h2 id="group-posts-title">Discussion</h2>
-              <span>{posts.length} posts</span>
+              <span>
+                {posts.length} {posts.length === 1 ? `post` : "posts"}
+              </span>
             </div>
 
             {!posts.length && (
@@ -148,6 +201,7 @@ function GroupDetailsPage() {
                     key={post._id}
                     post={post}
                     onOpen={setSelectedPost}
+                    onPostDeleted={handlePostDeleted}
                     onPostUpdated={handlePostUpdated}
                   />
                 ))}
@@ -155,7 +209,10 @@ function GroupDetailsPage() {
             )}
           </section>
 
-          <section className="group-members" aria-labelledby="group-members-title">
+          <section
+            className="group-members"
+            aria-labelledby="group-members-title"
+          >
             <div className="group-section-heading">
               <h2 id="group-members-title">Members</h2>
               <span>{members.length}</span>
@@ -173,7 +230,10 @@ function GroupDetailsPage() {
           </section>
         </main>
 
-        <aside className="group-detail-aside" aria-labelledby="group-players-title">
+        <aside
+          className="group-detail-aside"
+          aria-labelledby="group-players-title"
+        >
           <div className="group-section-heading">
             <h2 id="group-players-title">Favourite Players</h2>
             <span>{favouritePlayers.length}</span>
@@ -184,11 +244,12 @@ function GroupDetailsPage() {
           )}
 
           {favouritePlayers.length > 0 && (
-            <div className="group-player-cards">
-              {favouritePlayers.map((player) => (
-                <Player key={player._id} player={player} card />
-              ))}
-            </div>
+            <ProfileMediaGrid
+              items={favouritePlayers}
+              getImage={(player) => player.image}
+              getLabel={(player) => player.fullName}
+              getPath={(player) => `/players/${player._id}`}
+            />
           )}
         </aside>
       </div>
@@ -197,6 +258,7 @@ function GroupDetailsPage() {
         post={selectedPost}
         show={Boolean(selectedPost)}
         onHide={() => setSelectedPost(null)}
+        onPostDeleted={handlePostDeleted}
         onPostUpdated={handlePostUpdated}
       />
     </section>

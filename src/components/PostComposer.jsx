@@ -1,15 +1,20 @@
 import { useState } from "react";
+import { ImagePlus, UserRound } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
-
 import { createPost } from "../api/postsApi";
 import { selectCurrentUser } from "../features/auth/authSlice";
+import { uploadImage } from "../api/uploadsApi";
+
+import ImageUploadField from "./ImageUploadField";
 
 function PostComposer({ onPostCreated }) {
   const currentUser = useSelector(selectCurrentUser);
   const [content, setContent] = useState("");
-  const [image, setImage] = useState("");
+  const [imageFile, setImageFile] = useState(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState("");
+  const [showImageField, setShowImageField] = useState(false);
+  const [showPlayerPicker, setShowPlayerPicker] = useState(false);
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
 
@@ -24,6 +29,14 @@ function PostComposer({ onPostCreated }) {
 
   const favouritePlayers = currentUser.favouritePlayers || [];
 
+  function handleImageFieldToggle() {
+    if (showImageField) {
+      setImageFile(null);
+    }
+
+    setShowImageField((isVisible) => !isVisible);
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
 
@@ -34,7 +47,6 @@ function PostComposer({ onPostCreated }) {
     }
 
     try {
-      setStatus("loading");
       setError("");
 
       const postDetails = { content: trimmedContent };
@@ -43,16 +55,24 @@ function PostComposer({ onPostCreated }) {
         postDetails.player = selectedPlayerId;
       }
 
-      if (image.trim()) {
-        postDetails.image = image.trim();
+      if (imageFile) {
+        setStatus("uploading");
+
+        const uploadedImage = await uploadImage(imageFile, "posts");
+
+        postDetails.image = uploadedImage.url;
       }
+
+      setStatus("posting");
 
       const newPost = await createPost(postDetails);
 
       onPostCreated(newPost);
       setContent("");
-      setImage("");
+      setImageFile(null);
       setSelectedPlayerId("");
+      setShowImageField(false);
+      setShowPlayerPicker(false);
       setStatus("success");
     } catch (requestError) {
       setError(requestError.response?.data?.message || requestError.message);
@@ -62,64 +82,114 @@ function PostComposer({ onPostCreated }) {
 
   return (
     <section className="post-composer" aria-labelledby="post-composer-title">
-      <div className="post-composer-header">
-        <div className="composer-avatar" aria-hidden="true">
-          {currentUser.displayName?.slice(0, 1).toUpperCase()}
-        </div>
-
-        <div>
-          <h2 id="post-composer-title">Share an observation</h2>
-          <p>@{currentUser.username}</p>
-        </div>
-      </div>
-
       <form onSubmit={handleSubmit} className="post-composer-form">
-        <label htmlFor="post-content">Your take</label>
-        <textarea
-          id="post-content"
-          value={content}
-          onChange={(event) => setContent(event.target.value)}
-          placeholder="What are you seeing in their game?"
-          maxLength="1000"
-          required
-        />
-
-        {favouritePlayers.length > 0 ? (
-          <>
-            <label htmlFor="post-player">Link a favourite player (optional)</label>
-            <select
-              id="post-player"
-              value={selectedPlayerId}
-              onChange={(event) => setSelectedPlayerId(event.target.value)}
-            >
-              <option value="">No player selected</option>
-              {favouritePlayers.map((player) => (
-                <option value={player._id} key={player._id}>
-                  {player.fullName} · {player.currentTeam}
-                </option>
-              ))}
-            </select>
-          </>
+        {currentUser.avatar ? (
+          <img src={currentUser.avatar} alt="" className="composer-avatar" />
         ) : (
-          <p className="composer-hint">
-            Add favourite players to your profile to link them in a post.
-          </p>
+          <div className="composer-avatar" aria-hidden="true">
+            {currentUser.displayName?.slice(0, 1).toUpperCase()}
+          </div>
         )}
 
-        <label htmlFor="post-image">Image URL (optional)</label>
-        <input
-          id="post-image"
-          type="url"
-          value={image}
-          onChange={(event) => setImage(event.target.value)}
-          placeholder="https://example.com/image.jpg"
-        />
+        <div className="composer-surface">
+          <label htmlFor="post-content" className="visually-hidden">
+            Your take
+          </label>
+          <textarea
+            id="post-content"
+            value={content}
+            onChange={(event) => setContent(event.target.value)}
+            placeholder="What's your take?"
+            maxLength="1000"
+            required
+          />
 
-        <div className="post-composer-actions">
-          <p>{content.length}/1000</p>
-          <button type="submit" disabled={status === "loading"}>
-            {status === "loading" ? "Posting..." : "Post"}
-          </button>
+          {showImageField && (
+            <ImageUploadField onFileSelected={setImageFile} />
+          )}
+
+          {showPlayerPicker && favouritePlayers.length > 0 && (
+            <div className="composer-player-picker">
+              <p>Link a favourite player</p>
+              <div role="listbox" aria-label="Favourite players">
+                <button
+                  type="button"
+                  className={!selectedPlayerId ? "is-selected" : ""}
+                  aria-selected={!selectedPlayerId}
+                  onClick={() => setSelectedPlayerId("")}
+                >
+                  <span className="composer-player-icon composer-player-icon-fallback">
+                    —
+                  </span>
+                  <span>No player selected</span>
+                </button>
+
+                {favouritePlayers.map((player) => (
+                  <button
+                    type="button"
+                    key={player._id}
+                    className={selectedPlayerId === player._id ? "is-selected" : ""}
+                    aria-selected={selectedPlayerId === player._id}
+                    onClick={() => setSelectedPlayerId(player._id)}
+                  >
+                    {player.iconImage || player.image ? (
+                      <img
+                        src={player.iconImage || player.image}
+                        alt=""
+                        className="composer-player-icon"
+                      />
+                    ) : (
+                      <span className="composer-player-icon composer-player-icon-fallback">
+                        {player.fullName.slice(0, 1).toUpperCase()}
+                      </span>
+                    )}
+                    <span>
+                      <strong>{player.fullName}</strong>
+                      <small>{player.currentTeam || player.sport}</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="post-composer-actions">
+            <div className="composer-tool-actions">
+              <button
+                type="button"
+                className={showImageField ? "is-active" : ""}
+                onClick={handleImageFieldToggle}
+              >
+                <ImagePlus size={18} aria-hidden="true" />
+                Image
+              </button>
+
+              {favouritePlayers.length > 0 && (
+                <button
+                  type="button"
+                  className={showPlayerPicker ? "is-active" : ""}
+                  onClick={() => setShowPlayerPicker((isVisible) => !isVisible)}
+                >
+                  <UserRound size={18} aria-hidden="true" />
+                  Player
+                </button>
+              )}
+            </div>
+
+            <div className="composer-submit-actions">
+              <p>{content.length}/1000</p>
+              <button
+                type="submit"
+                disabled={status === "uploading" || status === "posting"}
+              >
+                {status === "uploading"
+                  ? "Uploading..."
+                  : status === "posting"
+                    ? "Posting..."
+                    : "Post"}
+              </button>
+            </div>
+          </div>
         </div>
       </form>
 

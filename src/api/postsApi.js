@@ -25,6 +25,10 @@ export async function createPost(postDetails) {
   return response.data.data;
 }
 
+export async function deletePost(postId) {
+  await apiClient.delete(`/posts/${postId}`);
+}
+
 export async function likePost(postId) {
   const response = await apiClient.patch(`/posts/${postId}/like`);
   return response.data.data;

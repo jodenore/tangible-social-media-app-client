@@ -10,6 +10,15 @@ export async function getGroupById(groupId) {
   return response.data.data;
 }
 
+export async function createGroup(groupDetails) {
+  const response = await apiClient.post("/groups", groupDetails);
+  return response.data.data;
+}
+
+export async function deleteGroup(groupId) {
+  await apiClient.delete(`/groups/${groupId}`);
+}
+
 export async function requestJoinGroup(groupId) {
   const response = await apiClient.patch(`/groups/${groupId}/join`);
   return response.data.data;

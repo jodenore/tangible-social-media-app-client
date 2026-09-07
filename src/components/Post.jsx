@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Heart } from "lucide-react";
+import { Heart, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 
-import { likePost, unlikePost } from "../api/postsApi";
+import { deletePost, likePost, unlikePost } from "../api/postsApi";
 import { selectCurrentUser } from "../features/auth/authSlice";
 
 function formatPostDate(date) {
@@ -14,10 +14,16 @@ function formatPostDate(date) {
   }).format(new Date(date));
 }
 
-function Post({ post, onOpen, onPostUpdated }) {
+function getPlayerInitial(name) {
+  return name?.slice(0, 1).toUpperCase() || "P";
+}
+
+function Post({ post, onOpen, onPostDeleted, onPostUpdated }) {
   const currentUser = useSelector(selectCurrentUser);
   const [likeStatus, setLikeStatus] = useState("idle");
   const [likeError, setLikeError] = useState("");
+  const [deleteStatus, setDeleteStatus] = useState("idle");
+  const [deleteError, setDeleteError] = useState("");
 
   const likes = post.likes || [];
   const isLiked = likes.some((like) => {
@@ -49,24 +55,63 @@ function Post({ post, onOpen, onPostUpdated }) {
     }
   }
 
+  async function handleDeletePost(event) {
+    event.stopPropagation();
+
+    if (!window.confirm("Delete this post? This cannot be undone.")) {
+      return;
+    }
+
+    try {
+      setDeleteStatus("loading");
+      setDeleteError("");
+      await deletePost(post._id);
+      onPostDeleted?.(post._id);
+    } catch (requestError) {
+      setDeleteError(
+        requestError.response?.data?.message || requestError.message,
+      );
+      setDeleteStatus("error");
+    }
+  }
+
   const authorName = post.author?.displayName || "Tangible user";
+  const authorId = typeof post.author === "string" ? post.author : post.author?._id;
+  const isAuthor = String(authorId) === String(currentUser?._id);
 
   return (
     <article className="feed-post" onClick={() => onOpen(post)}>
       <div className="feed-post-header">
-        {post.author?.avatar ? (
-          <img
-            src={post.author.avatar}
-            alt={`${authorName}'s profile`}
-            className="feed-avatar"
-          />
-        ) : (
-          <div className="feed-avatar feed-avatar-fallback" aria-hidden="true">
-            {authorName.slice(0, 1).toUpperCase()}
-          </div>
-        )}
+        <div className="feed-avatar-area">
+          {post.author?.avatar ? (
+            <img
+              src={post.author.avatar}
+              alt={`${authorName}'s profile`}
+              className="feed-avatar"
+            />
+          ) : (
+            <div className="feed-avatar feed-avatar-fallback" aria-hidden="true">
+              {authorName.slice(0, 1).toUpperCase()}
+            </div>
+          )}
 
-        <div>
+          {post.player && (
+            <Link
+              to={`/players/${post.player._id}`}
+              className="feed-player-pill"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {post.player.iconImage || post.player.image ? (
+                <img src={post.player.iconImage || post.player.image} alt="" />
+              ) : (
+                <span aria-hidden="true">{getPlayerInitial(post.player.fullName)}</span>
+              )}
+              <strong>{post.player.fullName}</strong>
+            </Link>
+          )}
+        </div>
+
+        <div className="feed-author-copy">
           <Link
             to={`/profile/${post.author?._id}`}
             className="feed-author"
@@ -77,34 +122,22 @@ function Post({ post, onOpen, onPostUpdated }) {
           <p className="feed-meta">
             @{post.author?.username || "tangible"} · {formatPostDate(post.createdAt)}
           </p>
-        </div>
-      </div>
-
-      <p className="feed-content">{post.content}</p>
-
-      {post.image && <img src={post.image} alt="" className="feed-image" />}
-
-      {(post.player || post.group) && (
-        <div className="feed-context">
-          {post.player && (
-            <Link
-              to={`/players/${post.player._id}`}
-              onClick={(event) => event.stopPropagation()}
-            >
-              {post.player.fullName}
-            </Link>
-          )}
 
           {post.group && (
             <Link
               to={`/groups/${post.group._id}`}
+              className="feed-group-context"
               onClick={(event) => event.stopPropagation()}
             >
               {post.group.name}
             </Link>
           )}
         </div>
-      )}
+      </div>
+
+      <p className="feed-content">{post.content}</p>
+
+      {post.image && <img src={post.image} alt="" className="feed-image" />}
 
       <footer className="feed-post-footer">
         {currentUser ? (
@@ -129,9 +162,22 @@ function Post({ post, onOpen, onPostUpdated }) {
         )}
 
         <span>{post.commentsCount} comments</span>
+
+        {isAuthor && (
+          <button
+            type="button"
+            className="post-delete-button"
+            onClick={handleDeletePost}
+            disabled={deleteStatus === "loading"}
+          >
+            <Trash2 size={15} aria-hidden="true" />
+            {deleteStatus === "loading" ? "Deleting..." : "Delete"}
+          </button>
+        )}
       </footer>
 
       {likeError && <p className="post-like-error">{likeError}</p>}
+      {deleteError && <p className="post-delete-error">{deleteError}</p>}
     </article>
   );
 }

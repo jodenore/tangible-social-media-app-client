@@ -1,12 +1,18 @@
 import { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 
 import { getPosts } from "../api/postsApi";
+import { getPlayers } from "../api/playersApi";
+import FeaturedPlayersCarousel from "../components/FeaturedPlayersCarousel";
 import PostComposer from "../components/PostComposer";
 import Post from "../components/Post";
 import PostModal from "../components/PostModal";
+import { selectCurrentUser } from "../features/auth/authSlice";
 
 function FeedPage() {
+  const currentUser = useSelector(selectCurrentUser);
   const [posts, setPosts] = useState([]);
+  const [featuredPlayers, setFeaturedPlayers] = useState([]);
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const [selectedPost, setSelectedPost] = useState(null);
@@ -17,8 +23,13 @@ function FeedPage() {
         setStatus("loading");
         setError("");
 
-        const postsData = await getPosts();
+        const [postsData, playersData] = await Promise.all([
+          getPosts(),
+          getPlayers({ sortBy: "favourites" }),
+        ]);
+
         setPosts(postsData);
+        setFeaturedPlayers(playersData.slice(0, 5));
         setStatus("success");
       } catch (requestError) {
         setError(requestError.response?.data?.message || requestError.message);
@@ -45,9 +56,22 @@ function FeedPage() {
     );
   }
 
+  function handlePostDeleted(postId) {
+    setPosts((currentPosts) =>
+      currentPosts.filter((post) => post._id !== postId),
+    );
+    setSelectedPost(null);
+  }
+
+  // Guests can sample the conversation without gaining access to the entire feed.
+  const visiblePosts = currentUser ? posts : posts.slice(0, 2);
+  const previewPosts = currentUser ? [] : posts.slice(2);
+
   return (
     <section className="page-panel">
-      <p className="page-kicker">Global Feed</p>
+      <div className="feed-page-layout">
+        <main className="feed-page-main">
+          <p className="page-kicker">Global Feed</p>
       <h1>Rising Star Conversations</h1>
       <p className="page-copy">
         Join the conversation around the athletes shaping what comes next.
@@ -65,23 +89,48 @@ function FeedPage() {
         <p className="page-copy">No posts have been shared yet.</p>
       )}
 
-      {status === "success" && posts.length > 0 && (
+      {status === "success" && visiblePosts.length > 0 && (
         <div className="feed-list">
-          {posts.map((post) => (
+          {visiblePosts.map((post) => (
             <Post
               key={post._id}
               post={post}
               onOpen={setSelectedPost}
+              onPostDeleted={handlePostDeleted}
               onPostUpdated={handlePostUpdated}
             />
           ))}
         </div>
       )}
 
+      {!currentUser && previewPosts.length > 0 && (
+        <>
+          <div className="feed-preview-list" aria-hidden="true" inert="">
+            {previewPosts.map((post) => (
+              <Post
+                key={post._id}
+                post={post}
+                onOpen={() => {}}
+                onPostDeleted={() => {}}
+                onPostUpdated={() => {}}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+        </main>
+
+        {status === "success" && (
+          <FeaturedPlayersCarousel players={featuredPlayers} />
+        )}
+      </div>
+
       <PostModal
         post={selectedPost}
         show={Boolean(selectedPost)}
         onHide={() => setSelectedPost(null)}
+        onPostDeleted={handlePostDeleted}
         onPostUpdated={handlePostUpdated}
       />
     </section>

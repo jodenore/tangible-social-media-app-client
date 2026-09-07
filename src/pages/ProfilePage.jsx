@@ -1,19 +1,38 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import Modal from "react-bootstrap/Modal";
+import { Pencil } from "lucide-react";
+import { useParams } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 
 import { getPostsByAuthorId } from "../api/postsApi";
-import { getUserById } from "../api/usersApi";
-import Player from "../components/Player";
+import { getUserById, updateUser } from "../api/usersApi";
+import { uploadUserAvatar } from "../api/uploadsApi";
+import ImageUploadField from "../components/ImageUploadField";
+import ProfileMediaGrid from "../components/ProfileMediaGrid";
 import Post from "../components/Post";
 import PostModal from "../components/PostModal";
+import {
+  selectCurrentUser,
+  setCurrentUser,
+} from "../features/auth/authSlice";
 
 function ProfilePage() {
   const { userId } = useParams();
+  const dispatch = useDispatch();
+  const currentUser = useSelector(selectCurrentUser);
   const [user, setUser] = useState(null);
   const [posts, setPosts] = useState([]);
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const [selectedPost, setSelectedPost] = useState(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editStatus, setEditStatus] = useState("idle");
+  const [editError, setEditError] = useState("");
+  const [profileFields, setProfileFields] = useState({
+    displayName: "",
+    bio: "",
+  });
+  const [avatarFile, setAvatarFile] = useState(null);
 
   useEffect(() => {
     async function loadProfile() {
@@ -50,6 +69,60 @@ function ProfilePage() {
     );
   }
 
+  function handlePostDeleted(postId) {
+    setPosts((currentPosts) =>
+      currentPosts.filter((post) => post._id !== postId),
+    );
+    setSelectedPost(null);
+  }
+
+  function openEditModal() {
+    setProfileFields({
+      displayName: user.displayName || "",
+      bio: user.bio || "",
+    });
+    setAvatarFile(null);
+    setEditError("");
+    setIsEditOpen(true);
+  }
+
+  function handleProfileFieldChange(event) {
+    setProfileFields((currentFields) => ({
+      ...currentFields,
+      [event.target.name]: event.target.value,
+    }));
+  }
+
+  async function handleProfileSave(event) {
+    event.preventDefault();
+
+    try {
+      setEditStatus("loading");
+      setEditError("");
+
+      let uploadedUser = null;
+
+      if (avatarFile) {
+        const uploadResult = await uploadUserAvatar(avatarFile);
+        uploadedUser = uploadResult.user;
+      }
+
+      const updatedUser = await updateUser(user._id, profileFields);
+      const savedUser = { ...uploadedUser, ...updatedUser };
+      const profileChanges = { ...savedUser };
+      delete profileChanges.favouritePlayers;
+      delete profileChanges.groups;
+
+      setUser((currentProfile) => ({ ...currentProfile, ...profileChanges }));
+      dispatch(setCurrentUser({ ...currentUser, ...profileChanges }));
+      setIsEditOpen(false);
+      setEditStatus("success");
+    } catch (requestError) {
+      setEditError(requestError.response?.data?.message || requestError.message);
+      setEditStatus("error");
+    }
+  }
+
   if (status === "loading") {
     return <p className="page-copy">Loading profile...</p>;
   }
@@ -64,6 +137,7 @@ function ProfilePage() {
 
   const favouritePlayers = user.favouritePlayers || [];
   const groups = user.groups || [];
+  const isCurrentUser = String(user._id) === String(currentUser?._id);
 
   return (
     <section className="page-panel">
@@ -82,11 +156,22 @@ function ProfilePage() {
           </div>
         )}
 
-        <div>
+        <div className="profile-header-copy">
           <h1>{user.displayName}</h1>
           <p className="profile-username">@{user.username}</p>
           <p className="page-copy">{user.bio || "No bio added yet."}</p>
         </div>
+
+        {isCurrentUser && (
+          <button
+            type="button"
+            className="profile-edit-button"
+            onClick={openEditModal}
+          >
+            <Pencil size={16} aria-hidden="true" />
+            Edit profile
+          </button>
+        )}
       </div>
 
       <div className="profile-detail-layout">
@@ -108,6 +193,7 @@ function ProfilePage() {
                     key={post._id}
                     post={post}
                     onOpen={setSelectedPost}
+                    onPostDeleted={handlePostDeleted}
                     onPostUpdated={handlePostUpdated}
                   />
                 ))}
@@ -128,11 +214,12 @@ function ProfilePage() {
             )}
 
             {favouritePlayers.length > 0 && (
-              <div className="profile-player-cards">
-                {favouritePlayers.map((player) => (
-                  <Player key={player._id} player={player} card />
-                ))}
-              </div>
+              <ProfileMediaGrid
+                items={favouritePlayers}
+                getImage={(player) => player.image}
+                getLabel={(player) => player.fullName}
+                getPath={(player) => `/players/${player._id}`}
+              />
             )}
           </section>
 
@@ -147,16 +234,12 @@ function ProfilePage() {
             )}
 
             {groups.length > 0 && (
-              <ul className="profile-groups-list">
-                {groups.map((group) => (
-                  <li key={group._id}>
-                    <Link to={`/groups/${group._id}`}>
-                      <strong>{group.name}</strong>
-                      <span>{group.description || "A Tangible community."}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <ProfileMediaGrid
+                items={groups}
+                getImage={(group) => group.image}
+                getLabel={(group) => group.name}
+                getPath={(group) => `/groups/${group._id}`}
+              />
             )}
           </section>
         </aside>
@@ -166,8 +249,75 @@ function ProfilePage() {
         post={selectedPost}
         show={Boolean(selectedPost)}
         onHide={() => setSelectedPost(null)}
+        onPostDeleted={handlePostDeleted}
         onPostUpdated={handlePostUpdated}
       />
+
+      <Modal
+        show={isEditOpen}
+        onHide={() => setIsEditOpen(false)}
+        centered
+        contentClassName="profile-edit-modal"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Edit profile</Modal.Title>
+        </Modal.Header>
+
+        <form onSubmit={handleProfileSave}>
+          <Modal.Body>
+            <div className="profile-edit-fields">
+              <label htmlFor="profile-display-name">Display name</label>
+              <input
+                id="profile-display-name"
+                name="displayName"
+                type="text"
+                value={profileFields.displayName}
+                onChange={handleProfileFieldChange}
+                maxLength="80"
+                required
+              />
+
+              <ImageUploadField
+                label="New avatar"
+                onFileSelected={setAvatarFile}
+              />
+
+              <label htmlFor="profile-bio">Bio</label>
+              <textarea
+                id="profile-bio"
+                name="bio"
+                value={profileFields.bio}
+                onChange={handleProfileFieldChange}
+                maxLength="300"
+                rows="4"
+                placeholder="Tell the community what you are watching."
+              />
+              <p className="profile-edit-count">
+                {profileFields.bio.length}/300
+              </p>
+            </div>
+
+            {editError && <p className="profile-edit-error">{editError}</p>}
+          </Modal.Body>
+
+          <Modal.Footer>
+            <button
+              type="button"
+              className="profile-edit-cancel"
+              onClick={() => setIsEditOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="profile-edit-save"
+              disabled={editStatus === "loading"}
+            >
+              {editStatus === "loading" ? "Saving..." : "Save changes"}
+            </button>
+          </Modal.Footer>
+        </form>
+      </Modal>
     </section>
   );
 }

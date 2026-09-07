@@ -28,8 +28,12 @@ function Player({ player, card = false }) {
   return (
     <Link to={`/players/${player._id}`} className="player-list-row">
       <span className="player-list-name" data-label="Player name">
-        {player.image ? (
-          <img src={player.image} alt="" className="player-list-avatar" />
+        {player.iconImage || player.image ? (
+          <img
+            src={player.iconImage || player.image}
+            alt=""
+            className="player-list-avatar"
+          />
         ) : (
           <span className="player-list-avatar player-list-avatar-fallback">
             {getPlayerInitials(player.fullName)}

@@ -1,0 +1,24 @@
+.admin-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-tabs button {
+  padding: 0.55rem 0.7rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.admin-tabs button:hover,
+.admin-tabs button.is-active {
+  background-color: var(--accent-soft);
+  color: var(--text);
+}

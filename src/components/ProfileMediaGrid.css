@@ -1,0 +1,31 @@
+.profile-media-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.profile-media-grid-item {
+  display: grid;
+  aspect-ratio: 1;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background-color: var(--accent-soft);
+  color: var(--muted);
+  font-family: var(--font-data);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.profile-media-grid-item:hover,
+.profile-media-grid-item:focus-visible {
+  border-color: var(--primary);
+}
+
+.profile-media-grid-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

@@ -1,9 +1,13 @@
 import { useState } from "react";
-import { Heart } from "lucide-react";
+import { Heart, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 
-import { likeComment, unlikeComment } from "../api/commentsApi";
+import {
+  deleteComment,
+  likeComment,
+  unlikeComment,
+} from "../api/commentsApi";
 import { selectCurrentUser } from "../features/auth/authSlice";
 
 function formatCommentDate(date) {
@@ -14,9 +18,10 @@ function formatCommentDate(date) {
   }).format(new Date(date));
 }
 
-function Comment({ comment, onCommentUpdated }) {
+function Comment({ comment, onCommentUpdated, onCommentDeleted }) {
   const currentUser = useSelector(selectCurrentUser);
   const [status, setStatus] = useState("idle");
+  const [deleteStatus, setDeleteStatus] = useState("idle");
   const [error, setError] = useState("");
 
   const likes = comment.likes || [];
@@ -24,6 +29,9 @@ function Comment({ comment, onCommentUpdated }) {
     const likeId = typeof like === "string" ? like : like._id;
     return String(likeId) === String(currentUser?._id);
   });
+  const authorId =
+    typeof comment.author === "string" ? comment.author : comment.author?._id;
+  const isAuthor = String(authorId) === String(currentUser?._id);
 
   async function handleLikeToggle() {
     if (!currentUser) {
@@ -45,6 +53,22 @@ function Comment({ comment, onCommentUpdated }) {
     }
   }
 
+  async function handleDelete() {
+    if (!window.confirm("Delete this comment? This cannot be undone.")) {
+      return;
+    }
+
+    try {
+      setDeleteStatus("loading");
+      setError("");
+      await deleteComment(comment._id);
+      onCommentDeleted?.(comment._id);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || requestError.message);
+      setDeleteStatus("error");
+    }
+  }
+
   const authorName = comment.author?.displayName || "Tangible user";
 
   return (
@@ -55,22 +79,36 @@ function Comment({ comment, onCommentUpdated }) {
       </p>
       <p className="comment-content">{comment.content}</p>
 
-      {currentUser ? (
-        <button
-          type="button"
-          className={`comment-like-button ${isLiked ? "is-liked" : ""}`}
-          onClick={handleLikeToggle}
-          disabled={status === "loading"}
-          aria-pressed={isLiked}
-        >
-          <Heart size={14} fill={isLiked ? "currentColor" : "none"} />
-          {likes.length} {likes.length === 1 ? "like" : "likes"}
-        </button>
-      ) : (
-        <Link to="/login" className="comment-like-login">
-          {likes.length} {likes.length === 1 ? "like" : "likes"}
-        </Link>
-      )}
+      <div className="comment-actions">
+        {currentUser ? (
+          <button
+            type="button"
+            className={`comment-like-button ${isLiked ? "is-liked" : ""}`}
+            onClick={handleLikeToggle}
+            disabled={status === "loading" || deleteStatus === "loading"}
+            aria-pressed={isLiked}
+          >
+            <Heart size={14} fill={isLiked ? "currentColor" : "none"} />
+            {likes.length} {likes.length === 1 ? "like" : "likes"}
+          </button>
+        ) : (
+          <Link to="/login" className="comment-like-login">
+            {likes.length} {likes.length === 1 ? "like" : "likes"}
+          </Link>
+        )}
+
+        {isAuthor && (
+          <button
+            type="button"
+            className="comment-delete-button"
+            onClick={handleDelete}
+            disabled={status === "loading" || deleteStatus === "loading"}
+          >
+            <Trash2 size={14} aria-hidden="true" />
+            {deleteStatus === "loading" ? "Deleting..." : "Delete"}
+          </button>
+        )}
+      </div>
 
       {error && <p className="comment-error">{error}</p>}
     </article>

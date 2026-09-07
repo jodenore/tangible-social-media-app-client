@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
-import { Search, Shield, UserRound } from "lucide-react";
+import { Search, Shield } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 
 import {
@@ -59,12 +59,19 @@ function RootLayout() {
 
             {currentUser ? (
               <>
-                <NavLink
-                  to="/profile/current"
-                  className="nav-profile-link"
-                >
-                  <UserRound size={18} aria-hidden="true" />
-                  <span>{currentUser.displayName}</span>
+                <NavLink to="/profile/current" className="nav-profile-link">
+                  {currentUser.avatar ? (
+                    <img
+                      src={currentUser.avatar}
+                      alt=""
+                      className="nav-profile-avatar"
+                    />
+                  ) : (
+                    <span className="nav-profile-avatar nav-profile-avatar-fallback" aria-hidden="true">
+                      {currentUser.displayName?.slice(0, 1).toUpperCase() || "T"}
+                    </span>
+                  )}
+                  <span>Welcome, {currentUser.displayName}!</span>
                 </NavLink>
 
                 <button

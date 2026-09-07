@@ -19,3 +19,7 @@ export async function unlikeComment(commentId) {
   const response = await apiClient.patch(`/comments/${commentId}/unlike`);
   return response.data.data;
 }
+
+export async function deleteComment(commentId) {
+  await apiClient.delete(`/comments/${commentId}`);
+}
