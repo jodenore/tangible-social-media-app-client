@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getPlayers } from "../api/playersApi";
-import { Link } from "react-router-dom";
+import Player from "../components/Player";
 
 function PlayersPage() {
   const [players, setPlayers] = useState([]);
@@ -40,21 +40,36 @@ function PlayersPage() {
       )}
 
       {status === "success" && (
-        <div className="template-grid three-column">
-          {players.map((player) => (
-            <Link
-              to={`/players/${player._id}`}
-              className="template-card player-card-link"
-              key={player._id}
-            >
-              <p className="template-label">{player.sport}</p>
-              <h2>{player.fullName}</h2>
-              <p>{player.position}</p>
-              <p>{player.currentTeam}</p>
-              <p>Potential: {player.potentialRating}</p>
-            </Link>
-          ))}
-        </div>
+        <section className="players-results" aria-labelledby="player-results-title">
+          <div className="players-results-heading">
+            <h2 id="player-results-title">Results</h2>
+            <p>{players.length} players</p>
+          </div>
+
+          {!players.length && (
+            <p className="page-copy">No players found.</p>
+          )}
+
+          {players.length > 0 && (
+            <>
+              <div className="players-column-headings" aria-hidden="true">
+                <span>Player name</span>
+                <span>Team</span>
+                <span>Position</span>
+                <span>Age</span>
+                <span>Rating</span>
+              </div>
+
+              <ul className="players-list">
+                {players.map((player) => (
+                  <li key={player._id}>
+                    <Player player={player} />
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
       )}
     </section>
   );

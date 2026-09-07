@@ -1,14 +1,22 @@
 import { useState } from "react";
-import { getCurrentUser, loginUser } from "../api/authApi";
+import { useLocation, useNavigate } from "react-router-dom";
+import {
+  login,
+  selectAuthError,
+  selectAuthStatus,
+} from "../features/auth/authSlice";
+import { useDispatch, useSelector } from "react-redux";
 
 function LoginPage() {
+  const dispatch = useDispatch();
+  const status = useSelector(selectAuthStatus);
+  const error = useSelector(selectAuthError);
+  const location = useLocation();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
-  const [status, setStatus] = useState("idle"); // idle, loading, success, error
-  const [error, setError] = useState("");
-  const [currentUser, setCurrentUser] = useState(null);
 
   function handleFieldChange(event) {
     setFormData({
@@ -19,19 +27,11 @@ function LoginPage() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-
     try {
-      setStatus("loading");
-      setError("");
-
-      const data = await loginUser(formData);
-      localStorage.setItem("token", data.data.token);
-      const loggedInUser = await getCurrentUser();
-      setCurrentUser(loggedInUser);
-      setStatus("success");
-    } catch (e) {
-      setError(e.response?.data?.message || e.message);
-      setStatus("error");
+      await dispatch(login(formData)).unwrap();
+      navigate(location.state?.from || "/", { replace: true });
+    } catch {
+      // auth slice stores the error for the UI to display.
     }
   }
 
@@ -66,12 +66,6 @@ function LoginPage() {
         </button>
       </form>
 
-      {status === "success" && currentUser && (
-        <div>
-          <p className="page-copy">Logged in successfully.</p>
-          <p className="page-copy">Logged in as {currentUser.displayName}</p>
-        </div>
-      )}
       {status === "error" && <p className="page-copy">{error}</p>}
     </section>
   );

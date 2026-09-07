@@ -1,6 +1,12 @@
 import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
-import { getCurrentUser, registerUser } from "../api/authApi";
+import {
+  register,
+  selectAuthError,
+  selectAuthStatus,
+} from "../features/auth/authSlice";
+import { useDispatch, useSelector } from "react-redux";
 
 function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -9,9 +15,11 @@ function RegisterPage() {
     email: "",
     password: "",
   });
-  const [status, setStatus] = useState("idle");
-  const [error, setError] = useState("");
-  const [currentUser, setCurrentUser] = useState(null);
+  const dispatch = useDispatch();
+  const status = useSelector(selectAuthStatus);
+  const error = useSelector(selectAuthError);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   function handleFieldChange(event) {
     setFormData({
@@ -24,20 +32,10 @@ function RegisterPage() {
     event.preventDefault();
 
     try {
-      setStatus("loading");
-      setError("");
-
-      const data = await registerUser(formData);
-
-      localStorage.setItem("token", data.data.token);
-
-      const loggedInUser = await getCurrentUser();
-
-      setCurrentUser(loggedInUser);
-      setStatus("success");
-    } catch (error) {
-      setError(error.response?.data?.message || error.message);
-      setStatus("error");
+      await dispatch(register(formData)).unwrap();
+      navigate(location.state?.from || "/", { replace: true });
+    } catch {
+      // auth slice stores the error here
     }
   }
 
@@ -95,13 +93,6 @@ function RegisterPage() {
           {status === "loading" ? "Creating account..." : "Create Account"}
         </button>
       </form>
-
-      {status === "success" && currentUser && (
-        <div>
-          <p className="page-copy">Account created successfully.</p>
-          <p className="page-copy">Logged in as {currentUser.displayName}</p>
-        </div>
-      )}
 
       {status === "error" && <p className="page-copy">{error}</p>}
     </section>

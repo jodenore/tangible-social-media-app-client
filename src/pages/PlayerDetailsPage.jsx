@@ -1,14 +1,27 @@
-import { useState } from "react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { getPlayerById } from "../api/playersApi";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+
+import {
+  selectCurrentUser,
+  setCurrentUser,
+} from "../features/auth/authSlice";
+import {
+  addFavouritePlayer,
+  removeFavouritePlayer,
+} from "../api/usersApi";
 
 function PlayerDetailsPage() {
   const { playerId } = useParams();
+  const dispatch = useDispatch();
+  const currentUser = useSelector(selectCurrentUser);
 
   const [player, setPlayer] = useState(null);
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
+  const [favouriteStatus, setFavouriteStatus] = useState("idle");
+  const [favouriteError, setFavouriteError] = useState("");
 
   useEffect(() => {
     async function loadPlayer() {
@@ -24,6 +37,38 @@ function PlayerDetailsPage() {
     }
     loadPlayer();
   }, [playerId]);
+
+  const isFavourited = currentUser?.favouritePlayers?.some((favourite) => {
+    const favouriteId =
+      typeof favourite === "string" ? favourite : favourite._id;
+
+    return String(favouriteId) === String(playerId);
+  });
+
+  async function handleFavouriteToggle() {
+    if (!currentUser || !player) {
+      return;
+    }
+
+    try {
+      setFavouriteStatus("loading");
+      setFavouriteError("");
+
+      const updateFavourite = isFavourited
+        ? removeFavouritePlayer
+        : addFavouritePlayer;
+      const updatedData = await updateFavourite(currentUser._id, player._id);
+
+      dispatch(setCurrentUser(updatedData.user));
+      setPlayer(updatedData.player);
+      setFavouriteStatus("success");
+    } catch (requestError) {
+      setFavouriteError(
+        requestError.response?.data?.message || requestError.message,
+      );
+      setFavouriteStatus("error");
+    }
+  }
 
   return (
     <section className="page-panel">
@@ -44,6 +89,29 @@ function PlayerDetailsPage() {
           <p>Potential: {player.potentialRating}</p>
           <p>Views: {player.views}</p>
           <p>Favourites: {player.favouritesCount}</p>
+
+          {currentUser ? (
+            <button
+              type="button"
+              className="favourite-player-button"
+              onClick={handleFavouriteToggle}
+              disabled={favouriteStatus === "loading"}
+            >
+              {favouriteStatus === "loading"
+                ? "Updating favourites..."
+                : isFavourited
+                  ? "Remove from favourites"
+                  : "Add to favourites"}
+            </button>
+          ) : (
+            <Link to="/login" className="favourite-player-login">
+              Log in to add favourites
+            </Link>
+          )}
+
+          {favouriteError && (
+            <p className="favourite-player-error">{favouriteError}</p>
+          )}
         </div>
       )}
     </section>
